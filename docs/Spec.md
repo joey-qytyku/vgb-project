@@ -11,17 +11,7 @@ The recompiling code then converts the code into native code by direct translati
 
 ## Decode Process
 
-JQ-RISC places all fields in predictable locations. This makes decoding simpler. SSE is used to speed up instruction decoding. The SSE registers store the results of decode operations and pextrw and pextrb are used to put it inside integer registers.
-
-This gives a minor performance increase.
-
-A XMM register is used for the following:
-* Opcode
-* Reg1
-* Reg2
-* Reg3
-
-Each are shifted and AND'ed so that each packed word is the necessary field.
+Decoding is done one-by-one at the moment. I have tried to use MMX/SSE to improve the throughput, but there does not seem to be a proper way to do this.
 
 ## x86 Instruction Generation
 
@@ -48,7 +38,7 @@ JQ-RISC does not have an architectural stack pointer and simulates this with an 
 
 ### Memory Addresses Indirect Addressing
 
-in IA-32, all registers can be used for memory addressing, but a different encoding is necessary.
+in IA-32, all registers can be used for memory addressing, but a different encoding is necessary. When any other register is used (or SIB features are used) the SIB byte is also encoded.
 
 ## Source Code
 
