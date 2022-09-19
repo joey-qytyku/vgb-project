@@ -25,7 +25,30 @@ Each are shifted and AND'ed so that each packed word is the necessary field.
 
 ## x86 Instruction Generation
 
+### Registers and Operand Size
+
 This process is simplified by the fact that JQ-RISC can only perform 32-bit memory access to aligned addresses, and all math is done on 32-bit registers. In 32-bit x86, the W-bit indicates if the access is a byte or a dword, rather than a word in 16-bit mode.
+
+x86 orders the encoding different than the logical order. Instead it goes:
+
+```c
+enum {
+EAX,
+ECX,
+EBX,
+EDX,
+EDI,
+ESI,
+ESP,
+EBP
+};
+```
+
+JQ-RISC does not have an architectural stack pointer and simulates this with an ABI defined SP. Register-related instructions can be 1:1 mapped, and the register encoding order is irrelevant.
+
+### Memory Addresses Indirect Addressing
+
+in IA-32, all registers can be used for memory addressing, but a different encoding is necessary.
 
 ## Source Code
 
@@ -50,7 +73,7 @@ mov eax,80000000h
 
 Partial register access is totally avoided as this causes the register to be renamed to something different from the expected destination, and there is a penalty.
 
-Reducing code size does not always improve performance. While cache efficiency may be improved, the instructions will run slower if the "bad" choices are made. JQx86 does not run on constrained environments.
+Reducing code size does not always improve performance. While cache efficiency may be improved, the instructions will run slower if the "bad" choices are made.
 
 ## Security
 
