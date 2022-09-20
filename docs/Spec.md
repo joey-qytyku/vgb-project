@@ -1,10 +1,10 @@
-# JQEM
+# JQx86
 
-JQEM is a dynamic recompiler that converts JQ-RISC code into native 32-bit binary in real time. The generated code is not of optimizing C compiler quality, but runs much faster than direct interpretation for programs that do not overuse self-modifying code.
+JQx86 is a dynamic recompiler that converts JQ-RISC code into native 32-bit binary in real time. The generated code is not of optimizing C compiler quality, but runs much faster than direct interpretation for programs that do not overuse self-modifying code.
 
 ##  Concepts
 
-JQEM fetches a "block" of instructions, which is 4096 bytes long and in JQ-RISC, contains 2048 instructions (also 64 cache lines). This is stored in a page aligned space for processing.
+JQx86 fetches a "block" of instructions, which is 4096 bytes long and in JQ-RISC, contains 2048 instructions (also 64 cache lines). This is stored in a page aligned space for processing.
 
 The recompiling code then converts the code into native code by direct translation to an exact equivalent.
 
@@ -23,14 +23,7 @@ x86 orders the encoding different than the logical order. Instead it goes:
 
 ```c
 enum {
-EAX,
-ECX,
-EBX,
-EDX,
-EDI,
-ESI,
-ESP,
-EBP
+EAX,ECX,EBX,EDX,EDI,ESI,ESP,EBP
 };
 ```
 
@@ -38,7 +31,27 @@ JQ-RISC does not have an architectural stack pointer and simulates this with an 
 
 ### Memory Addresses Indirect Addressing
 
-in IA-32, all registers can be used for memory addressing, but a different encoding is necessary. When any other register is used (or SIB features are used) the SIB byte is also encoded.
+in IA-32, all registers can be used for memory addressing, but a different encoding is necessary. When any other register is used (or SIB features are used) the SIB byte is also encoded.  The exact complexities do not need to be known, only the following table is needed:
+|Hex|Meaning|
+-|-
+00|[EAX]
+01|[ECX]
+02|[EDX]
+03|[EBX]
+06|[ESI]
+07|[EDI]
+45 00|[EBP+0]
+04 24|[ESP]
+
+Note that [EBP+0] encodes an offset while [ESP] does not need to. [ESP] encodes an additional byte because ModRM cannot encode ESP. Anyway, this is pointless because the stack is never directly accessed (and there are no stack instructions either).
+
+In the source code, there are functions for assembling instructions with their components: opcode, address, registers.
+
+### Overall Explaination
+
+Because of the entirely 32-bit design of JQ-RISC, shortcuts can be taken so that there is very little conditional branching in the conversion code, and that converter runs as fast as possible. The few instructions implemented in JQ-RISC means that only a fine-tuned subset of x86 needs to be used.
+
+This makes JQx86 completely non-portable to other source architectures.
 
 ## Source Code
 
@@ -70,4 +83,3 @@ Reducing code size does not always improve performance. While cache efficiency m
 JQ-RISC code is not permitted to access beyond what is allocated initially. Addresses are checked to be in this range.
 
 The stack pointer is never directly accessed. Instructions referencing the stack are virtualized.
-

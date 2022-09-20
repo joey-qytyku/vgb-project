@@ -13,6 +13,8 @@ R7    = SP
 
 Instructions have predictable encoding and fields are in the same location. Each instruction is 16-bit. There are less than 32.
 
+There are no advanced addressing modes.
+
 Branch targets are always DWORD aligned. All instructions must be at least WORD aligned. Memory access is always DWORD aligned.
 
 Operands follow the intel syntax direction. Bytes are little endian.

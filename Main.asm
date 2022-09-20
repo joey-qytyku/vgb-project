@@ -68,8 +68,13 @@ MkComponent.Reg:
 ; Procedure: MkComponent.Addr
 ; Creates an address relative to the execution buffer
 ; If there is an overflow, execution halts with error
+; Modifies:
+;       The program counter
 ;
 MkComponent.Addr:
+
+SourceOp.LDI:
+
 
 ;-------------------------------------------------------------------------------
 ; Procedure: ExecuteVM
