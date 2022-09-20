@@ -4,8 +4,6 @@ bits 32
 ; When using ESP or EBP, an offset is required (but can be zero)
 ;
 
-
-test:
         mov     [eax],dword 1
         mov     [ebx],dword 1
         mov     [ecx],dword 1
