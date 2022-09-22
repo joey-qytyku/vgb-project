@@ -1,9 +1,4 @@
 bits 32
 
-jmp eax
-jmp ebx
-jmp ecx
-jmp edx
-jmp edi
-jmp esi
-jmp esp
+mov eax,1
+mov ebx,1

@@ -46,6 +46,9 @@ abStatBuffer:
 lProgramCounter:
         RESD    1
 
+lVirtualESP:
+        RESD    1
+
         section .data
 
 strCopyrightMsg:
@@ -59,22 +62,30 @@ afCallTable:
 
         section .text
 
-;-------------------------------------------------------------------------------
-; Procedure: MkComponent.Reg
-; The stack pointer is never accessed directly because that is dangerous.
-;
-MkComponent.Reg:
+;No need to decode ModRM, reg specified in opcode
+Helper.MoveImmToReg:
+        mov     eax,10111000b
+        or      eax,ecx
+        stosb
+        mov     eax,edx
+        shl     eax,3
+        or      eax,ebp
+        stosd
+        ret
 
-;-------------------------------------------------------------------------------
-; Procedure: MkComponent.Addr
-; Creates an address relative to the execution buffer
-; If there is an overflow, execution halts with error
-; Modifies:
-;       The program counter
-;
-MkComponent.Addr:
+Helper.MoveRegToReg:
+Helper.CmpRegs:
+Helper.Halt
 
-SourceOp.LDI:
+;
+;All arithmetic and bitwise instructions are register-to-register
+;so the ModRM/Reg direction is not that important.
+;
+Helper.Addition:
+        mov     eax,0
+Helper.Subtraction:
+Helper.Multiplication:
+Helper.Division:
 
 
 ;-------------------------------------------------------------------------------
@@ -94,6 +105,8 @@ ExecuteVM:
 
         mov     esi,7
 
+%define VREG_ANDVAL esi
+
         ;EBX=Opcode
         shr     ebx,3
         and     ebx,esi
@@ -109,7 +122,12 @@ ExecuteVM:
         ;EBP=REG1
         and     ebp,VREG_ANDVAL
 
+%undef VREG_ANDVAL
+
+        mov     edi,[lProgramCounter]
         call    [ebx*4+afCallTable]
+        mov     [lProgramCounter],edi
+        ;Increment PC by one?
         ret
 
 ;-------------------------------------------------------------------------------

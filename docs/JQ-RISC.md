@@ -19,10 +19,12 @@ Branch targets are always DWORD aligned. All instructions must be at least WORD 
 
 Operands follow the intel syntax direction. Bytes are little endian.
 
+The divide instructions operate basically exactly as they do in x86 and are of I-Type with the immediate discarded.
+
 R-Type
 CCCCCrrr --RRRrrr
 I-Type
-CCCCCrrr iiiiiiii
+CCCCCrrr --iiiiii
 J-Type: 10-bit displacement (shifted by 2)
 CCCCCxxx jjjjjjjj
 

@@ -26,7 +26,7 @@ EAX,ECX,EBX,EDX,EDI,ESI,ESP,EBP
 };
 ```
 
-JQ-RISC does not have an architectural stack pointer and simulates this with an ABI defined SP. Register-related instructions can be 1:1 mapped, and the register encoding order is irrelevant.
+JQ-RISC does not have an architectural stack pointer and simulates this with an ABI defined SP. Register-related instructions can be 1:1 mapped, and the register encoding order is irrelevant, except for ESP, which is a memory location.
 
 ### Branching
 
@@ -63,19 +63,29 @@ Because of the entirely 32-bit design of JQ-RISC, shortcuts can be taken so that
 
 This makes JQx86 completely non-portable to other source architectures.
 
-### Algorithm
+### Structure
 
-* Open file
-* Allocate memory
-* Read file into memory
-* Close file
-* ExecuteVM
-  * Fetch an instruction
-  * Call a conversion function
-    * Generate equivalent opcode
-    * Increase the program counter
-    * If the function returns zero, continue
-    * If returns one, halt
+The branch table called by ExecuteVM runs a function that generates the specific instruction with the specified operands.
+
+Each instruction has one equivalent, besides LDM, STM, and LDI. This is because ESP is not the stack pointer in JQ-RISC and is virtualized as an extra scratch register.
+
+ANyways, the generation procedure calls helper procedures to generate one of the following types of instructions:
+* Move immediate to reg
+* Move reg to reg
+* Move reg to mem
+* Move mem to reg
+* Jump 8-bit relative
+* Jump 32-bit absolute register target
+* Compare reg with R/M
+* Add/sub/mul/div/idiv/imul reg to reg
+* Halt
+* INT through SWI
+
+The helper procedure generates that specific type. Most instructions have direct equivalents and the helper function is the dispatch target. In the case of the MOV family, they must by multiplexed so that they can access memory instead of ESP.
+
+Because JQ-RISC instructions can take three register operands, an extra reg-to-reg may need to be generated.
+
+
 
 ## Source Code
 
