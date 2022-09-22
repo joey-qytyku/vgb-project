@@ -26,6 +26,7 @@
         %define O_TRUNC         00001000
         %define O_RDONLY        00000000
         %define STAT_SIZE       48
+        %define MEM_SIZE        65536
 
         bits    32
         global  _start
@@ -80,6 +81,7 @@ SourceOp.LDI:
 ; Procedure: ExecuteVM
 ; Converts JQ-RISC code into native x86 binary
 ;
+;
         align   64
 ExecuteVM:
         ;I tried to use SSE/MMX to no avail. The only way I can think of is
@@ -120,7 +122,7 @@ _start:
         add     esp,4
 
         cmp     dword [esp+4],1
-        jb      .start_error
+        jb      .StartError
 
         mov     ebx,[esp+8]
         mov     ebx,[ebx+4]     ; Get argv[1] in EBX
@@ -132,22 +134,15 @@ _start:
         int     80h
         ;EAX is the file descriptor, if -1, failed
         cmp     eax,-1
-        je      .start_error
+        je      .StartError
 
-        ;Calculate the size using stat
-        ;EBX still is the name
         push    eax                             ;Save the FD
-
-        mov     eax,SYS_STAT                    ;stat call
-        mov     ebx,abStatBuffer                ;buffer
-        int     80h
-
-        push    dword [abStatBuffer+STAT_SIZE]  ;Get the size
+        push    MEM_SIZE
         call    malloc                          ;Allocate the memory
         add     esp,4                           ;Clean stack
 
         test    eax,eax         ; Is result NULL
-        je      .start_error
+        je      .StartError
 
         ;EAX contains pointer to allocated buffer
         ;On the stack is the FD
@@ -158,14 +153,21 @@ _start:
         mov     edx,[abStatBuffer+STAT_SIZE]
         int     80h
 
+        ;Close the file, it is no longer needed
+        mov     eax,SYS_OPEN+1
+        int     80h
+
         ;Buffer contains the code to be executed by JQx86
         mov     [lProgramCounter],ecx
+        mov     [MemoryPtr],ecx         ;Memorize buffer, PC changes
 
+        ;Execute the VM
 
-.start_error:
-        jmp     .done
-.runtime_error:
-        ; Only in this case is there a buffer to be allocated
-.done:
+        ;Deallocate memory
+.KillMachine:
+        push    [MemoryPtr]
+        call    free
+.StartError:
+        ;There is no memory to free
         mov     eax,1
         int     80h
