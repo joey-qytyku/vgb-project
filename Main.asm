@@ -64,7 +64,8 @@ afCallTable:
 
 ;No need to decode ModRM, reg specified in opcode
 Helper.MoveImmToReg:
-        mov     eax,10111000b
+        xor     eax,eax
+        mov     al,10111000b
         or      eax,ecx
         stosb
         mov     eax,edx
@@ -73,7 +74,30 @@ Helper.MoveImmToReg:
         stosd
         ret
 
+;-------------------------------------------------------------------------------
+; Procedure EncodeR2rModRM:
+;       Generate a ModRM byte to represent a register-to-register operation
+;
+;       A reg-to-reg ModRM byte looks like this
+;       11rrrRRR, where 11 indicates register addressing
+;       and rrr+RRR are the two register operands.
+;
+; INPUTS:
+;       EBP=Reg1 (source operand)
+;       EDX=Reg2 (destination operand)
+; OUTPUTS:
+;       EAX=Reg-to-reg ModRM byte
+; CLOBBERS:
+;       EAX
+EncodeR2rModRM:
+        mov     eax,edx
+        shl     eax,3
+        or      eax,ebp
+        or      eax,11000000h
+        ret
+
 Helper.MoveRegToReg:
+        call    EncodeR2rModRM
 Helper.CmpRegs:
 Helper.Halt
 
@@ -82,11 +106,9 @@ Helper.Halt
 ;so the ModRM/Reg direction is not that important.
 ;
 Helper.Addition:
-        mov     eax,0
 Helper.Subtraction:
 Helper.Multiplication:
 Helper.Division:
-
 
 ;-------------------------------------------------------------------------------
 ; Procedure: ExecuteVM
