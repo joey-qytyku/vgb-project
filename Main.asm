@@ -18,6 +18,7 @@
 ;OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ;SOFTWARE.
 
+%endmacro
 
         %define SYS_READ        3
         %define SYS_OPEN        5
@@ -29,8 +30,8 @@
         %define MEM_SIZE        65536
 
         bits    32
-        global  _start
-        extern  malloc
+        global  main
+        extern  malloc, free, printf, puts
 
         section .bss
 
@@ -39,14 +40,13 @@
 ;
 alRegBuffer:
         RESD    8
-
 abStatBuffer:
         RESB    144
-
 lProgramCounter:
         RESD    1
-
 lVirtualESP:
+        RESD    1
+pMemory:
         RESD    1
 
         section .data
@@ -99,7 +99,7 @@ EncodeR2rModRM:
 Helper.MoveRegToReg:
         call    EncodeR2rModRM
 Helper.CmpRegs:
-Helper.Halt
+Helper.Halt:
 
 ;
 ;All arithmetic and bitwise instructions are register-to-register
@@ -113,7 +113,6 @@ Helper.Division:
 ;-------------------------------------------------------------------------------
 ; Procedure: ExecuteVM
 ; Converts JQ-RISC code into native x86 binary
-;
 ;
         align   64
 ExecuteVM:
@@ -142,7 +141,7 @@ ExecuteVM:
         and     edx,VREG_ANDVAL
 
         ;EBP=REG1
-        and     ebp,VREG_ANDVAL
+        and     ebp,VREG_ANDVALproject
 
 %undef VREG_ANDVAL
 
@@ -153,13 +152,17 @@ ExecuteVM:
         ret
 
 ;-------------------------------------------------------------------------------
-; _start
+; Procedure: main
 ; argv[1] is the binary to execute
 ;-------------------------------------------------------------------------------
-_start:
+main:
         push    strCopyrightMsg
         call    puts
         add     esp,4
+
+        mov eax,1
+        mov ebx,1
+        int 80h
 
         cmp     dword [esp+4],1
         jb      .StartError
@@ -199,13 +202,13 @@ _start:
 
         ;Buffer contains the code to be executed by JQx86
         mov     [lProgramCounter],ecx
-        mov     [MemoryPtr],ecx         ;Memorize buffer, PC changes
+        mov     [pMemory],ecx          ;Memorize buffer, PC changes
 
         ;Execute the VM
 
         ;Deallocate memory
 .KillMachine:
-        push    [MemoryPtr]
+        push    dword [pMemory]
         call    free
 .StartError:
         ;There is no memory to free
