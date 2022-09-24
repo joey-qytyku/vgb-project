@@ -29,6 +29,10 @@
         %define STAT_SIZE       48
         %define MEM_SIZE        65536
 
+        ;Single byte opcodes using ModRM/Reg to encode RegOps
+        %define X86.MOV_R2R    89h
+        %define X86.MOV_M2R    8Bh
+
         bits    32
         global  main
         extern  malloc, free, printf, puts
@@ -62,7 +66,8 @@ afCallTable:
 
         section .text
 
-;No need to decode ModRM, reg specified in opcode
+;No need to decode ModRM, reg specified in opcod
+
 Helper.MoveImmToReg:
         xor     eax,eax
         mov     al,10111000b
@@ -86,15 +91,57 @@ Helper.MoveImmToReg:
 ;       EBP=Reg1 (source operand)
 ;       EDX=Reg2 (destination operand)
 ; OUTPUTS:
-;       EAX=Reg-to-reg ModRM byte
+;       EAX=Reg-to-reg ModRM byte produced
 ; CLOBBERS:
-;       EAX
+;       EAX, the output code buffer
 EncodeR2rModRM:
         mov     eax,edx
         shl     eax,3
         or      eax,ebp
         or      eax,11000000h
+        stosb
         ret
+
+;-------------------------------------------------------------------------------
+; Procedure EncodeR2mModRM
+;       Generate the Mod/RM + SIB sequence for a specific memory addressing mode
+;       Supports [EAX], [EBX], [ECX], [EDX], [ESI], [EDI], [EBP]
+;
+; INPUTS:
+;       EBP=Register to use as address (RegOp 1)
+; OUTPUTS:
+;       EAX = -1 if using stack pointer as the address
+EncodeSIB:
+        cmp     ebp,6           ;Is it the stack pointer?
+        je      .StackPointer
+
+        cmp     ebp,7           ;Is it the base pointer?
+        je      .BasePointer
+
+        ;If normal register, encode the exact RegOp number
+        mov     eax,ebp
+        stosb
+        ret
+.StackPointer:
+        ;Access to the stack pointer is faked. JQ-RISC does not have an
+        ;architectural SP and must be able to use it as a scratch reg
+        ;Using ESP as an address requires saving an x86 register that is not the
+        ;target operand (increment and bit-AND always works),
+        ;writing the address there and then performing the whole memory access
+
+.BasePointer:
+        ;Using [R6], or in x86, [EBP] requires an extra 8-bit signed offset
+        ;In this emulator, it will always be zero because advanced addressing
+        ;modes are not supported in JQ-RISC
+        xor     eax,eax
+        stosb
+        ret
+
+
+;
+;Procedure to generate memory access (in case of ESP)
+;and procedure for reg access?
+;
 
 Helper.MoveRegToReg:
         call    EncodeR2rModRM
@@ -156,6 +203,8 @@ ExecuteVM:
 ; argv[1] is the binary to execute
 ;-------------------------------------------------------------------------------
 main:
+        cld     ; Clear for entire program
+
         push    strCopyrightMsg
         call    puts
         add     esp,4

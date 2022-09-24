@@ -74,8 +74,6 @@ ANyways, the generation procedure calls helper procedures to generate one of the
 * Move reg to reg
 * Move reg to mem
 * Move mem to reg
-* Jump 8-bit relative
-* Jump 32-bit absolute register target
 * Compare reg with R/M
 * Add/sub/mul/div/idiv/imul reg to reg
 * Halt
