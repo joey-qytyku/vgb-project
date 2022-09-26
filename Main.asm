@@ -33,6 +33,38 @@
         %define X86.MOV_R2R    89h
         %define X86.MOV_M2R    8Bh
 
+JQ.LDI  EQU     0
+JQ.AD   EQU     1
+JQ.SB   EQU     2
+JQ.SHF  EQU     3
+JQ.SHI  EQU     4
+
+JQ.BITOR        EQU     5
+JQ.BITXOR       EQU     6
+JQ.BITAND       EQU     7
+JQ.B            EQU     8
+JQ.LDI          EQU     9
+
+JQ.B       EQU     10
+JQ.BNZ     EQU     11
+JQ.BZ      EQU     12
+
+JQ.BAE     EQU     13
+JQ.BA      EQU     14
+
+JQ.BBE     EQU     15
+JQ.BB      EQU     16
+
+JQ.BG      EQU     17
+JQ.BGE     EQU     18
+
+JQ.BLE     EQU     19
+JQ.BLESS   EQU     20
+
+JQ.HALT    EQU     21
+
+
+
         bits    32
         global  main
         extern  malloc, free, printf, puts
@@ -47,8 +79,6 @@ alRegBuffer:
 abStatBuffer:
         RESB    144
 lProgramCounter:
-        RESD    1
-lVirtualESP:
         RESD    1
 pMemory:
         RESD    1
@@ -66,8 +96,7 @@ afCallTable:
 
         section .text
 
-;No need to decode ModRM, reg specified in opcod
-
+;No need to decode ModRM, reg specified in opcode
 Helper.MoveImmToReg:
         xor     eax,eax
         mov     al,10111000b
@@ -107,41 +136,13 @@ EncodeR2rModRM:
 ;       Generate the Mod/RM + SIB sequence for a specific memory addressing mode
 ;       Supports [EAX], [EBX], [ECX], [EDX], [ESI], [EDI], [EBP]
 ;
+;       R6 is the zero register.
 ; INPUTS:
 ;       EBP=Register to use as address (RegOp 1)
 ; OUTPUTS:
-;       EAX = -1 if using stack pointer as the address
+;
 EncodeSIB:
-        cmp     ebp,6           ;Is it the stack pointer?
-        je      .StackPointer
-
-        cmp     ebp,7           ;Is it the base pointer?
-        je      .BasePointer
-
-        ;If normal register, encode the exact RegOp number
-        mov     eax,ebp
-        stosb
         ret
-.StackPointer:
-        ;Access to the stack pointer is faked. JQ-RISC does not have an
-        ;architectural SP and must be able to use it as a scratch reg
-        ;Using ESP as an address requires saving an x86 register that is not the
-        ;target operand (increment and bit-AND always works),
-        ;writing the address there and then performing the whole memory access
-
-.BasePointer:
-        ;Using [R6], or in x86, [EBP] requires an extra 8-bit signed offset
-        ;In this emulator, it will always be zero because advanced addressing
-        ;modes are not supported in JQ-RISC
-        xor     eax,eax
-        stosb
-        ret
-
-
-;
-;Procedure to generate memory access (in case of ESP)
-;and procedure for reg access?
-;
 
 Helper.MoveRegToReg:
         call    EncodeR2rModRM
@@ -173,11 +174,12 @@ ExecuteVM:
 
         mov     esi,7
 
-%define VREG_ANDVAL esi
-
         ;EBX=Opcode
         shr     ebx,3
         and     ebx,esi
+
+        cmp     ebx,JQ.HALT
+        jz      .End
 
         ;ECX=REG3
         shr     ecx,8
@@ -185,17 +187,20 @@ ExecuteVM:
 
         ;EDX=REG2
         shr     edx,3
-        and     edx,VREG_ANDVAL
+        and     edx,esi
 
         ;EBP=REG1
-        and     ebp,VREG_ANDVALproject
-
-%undef VREG_ANDVAL
+        and     ebp,esi
 
         mov     edi,[lProgramCounter]
         call    [ebx*4+afCallTable]
         mov     [lProgramCounter],edi
-        ;Increment PC by one?
+
+        ;Conversion functions append bytes to the execution
+        ;buffer using STOS. The program counter always points
+        ;to the next byte to insert an instruction (like a normal PC)
+        jmp     ExecuteVM
+.End:
         ret
 
 ;-------------------------------------------------------------------------------

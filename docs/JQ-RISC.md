@@ -2,12 +2,17 @@
 
 ## Registers
 
-There are eight accessible registers. There is no zero register.
-
-R0-R4 = Scratch
-R5    = Multiply/Divide result
-R6    = BP
-R7    = SP
+There are eight accessible registers.
+|Rx|Significance|
+-|-
+R0 | Scratch
+R1 | Scratch
+R2 | Scratch
+R3 | Scratch
+R4 | Scratch
+R5 | Scratch
+R6 | Zero
+R7 | Scratch
 
 ## Instruction Encoding
 
@@ -15,33 +20,65 @@ Instructions have predictable encoding and fields are in the same location. Each
 
 There are no advanced addressing modes.
 
-Branch targets are always DWORD aligned. All instructions must be at least WORD aligned. Memory access is always DWORD aligned.
+Operands follow the AT&T syntax direction. Bytes are little endian.
 
-Operands follow the intel syntax direction. Bytes are little endian.
+I-Type opcodes use only 6-bit immediates. This for decoding simplicity.
 
-The divide instructions operate basically exactly as they do in x86 and are of I-Type with the immediate discarded.
+Features present:
+* Shift by contant using signed offset
 
+Features not present:
+* Hardware division and multiplication
+* Unaligned memory access
+* Access to words and bytes
+* Branch to unaligned address (32-bit align)
+* Reg-to-reg move
+* Comparison
+
+Moving from R2R can be done by simply adding the register with the zero register and saving the result to the destination. Comparisons can be done by subtracting two registers and saving the result in the zero register
+
+```
 R-Type
 CCCCCrrr --RRRrrr
+
 I-Type
 CCCCCrrr --iiiiii
-J-Type: 10-bit displacement (shifted by 2)
-CCCCCxxx jjjjjjjj
 
-LS-Type
+J-Type: 8-bit displacement (shifted by 2)
+CCCCCxxx --jjjjj
+
+LS-Type (Load/Store)
 CCCCCrrr --------
-
+```
 ## Instruction Definitions
-
+```
 LDI, 0, I-Type
 
-ADD
-SUB
-UML
-IML
-UDV
-IDV
+AD, R-Type
+SB, R-Type
 
-SHF, R-Type, uses 8-bit signed offset
-OR,  R-Type
-XOR, R-Type
+SHF, R-Type, uses 8-bit normalized signed offset
+SHI, I-Type
+
+BITOR,  R-Type
+BITXOR, R-Type
+BITAND, R-Type
+
+B
+BNZ
+BZ
+
+BAE, R-Type
+BA
+
+BBE
+BB
+
+BG
+BGE
+
+BLE
+BLESS
+
+HALT
+```
