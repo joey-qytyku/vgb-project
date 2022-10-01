@@ -20,6 +20,7 @@
 
 %endmacro
 
+        %define SYS_EXIT        1
         %define SYS_READ        3
         %define SYS_OPEN        5
         %define SYS_STAT        0x12
@@ -63,8 +64,6 @@ JQ.BLESS   EQU     20
 
 JQ.HALT    EQU     21
 
-
-
         bits    32
         global  main
         extern  malloc, free, printf, puts
@@ -73,7 +72,7 @@ JQ.HALT    EQU     21
 
 ;When translated x86 instructions are done executing
 ;they must exit back to the VM procedure
-;
+;The FLAGS register is also saved
 alRegBuffer:
         RESD    8
 abStatBuffer:
@@ -82,6 +81,10 @@ lProgramCounter:
         RESD    1
 pMemory:
         RESD    1
+BytesLeftInBlock:
+        RESD    1
+ExecBuffer:
+        RESB    4096
 
         section .data
 
@@ -93,6 +96,7 @@ strStartuperror:
 
 ;Array of call pointers
 afCallTable:
+        DD      Conv.LDI
 
         section .text
 
@@ -106,6 +110,23 @@ Helper.MoveImmToReg:
         shl     eax,3
         or      eax,ebp
         stosd
+        ret
+
+Conv.LDI:
+        ;Is the source operand the zero register?
+        cmp     ebp,6
+        je      .ZeroDestReg
+
+        ;Is the destination ZR? If so, this is a redundand opcode (NOP)
+        cmp     edx,6
+        jne     .DestNotZR
+        mov     eax,90h
+        stosb
+.DestNotZR:
+
+        call    Helper.MoveImmToReg
+.ZeroDestReg:
+        ;If it the source operand is zero, XOR the x86reg with itself
         ret
 
 ;-------------------------------------------------------------------------------
@@ -166,6 +187,9 @@ Helper.Division:
 ExecuteVM:
         ;I tried to use SSE/MMX to no avail. The only way I can think of is
         ;to decode instructions one by one
+
+        mov     byte [BytesLeftInBlock],4096
+.Emit:
         mov     eax,[lProgramCounter]
         movzx   ebx, word [eax]
         mov     ecx,ebx
@@ -173,33 +197,60 @@ ExecuteVM:
         mov     ebp,ebx
 
         mov     esi,7
-
         ;EBX=Opcode
         shr     ebx,3
         and     ebx,esi
-
         cmp     ebx,JQ.HALT
         jz      .End
-
         ;ECX=REG3
         shr     ecx,8
         and     ecx,esi
-
         ;EDX=REG2
         shr     edx,3
         and     edx,esi
-
         ;EBP=REG1
         and     ebp,esi
 
+        cmp     [BytesLeftInBlock],15
+        jae     .ClearToEmit
+        jmp     .RunBlock
+.ClearToEmit:
+        ;Emit an instruction
         mov     edi,[lProgramCounter]
         call    [ebx*4+afCallTable]
         mov     [lProgramCounter],edi
+        ;BytesLeftInBlock = EDI - (ExecBuffer+4096)
+        sub     edi,ExecBuffer+4096
+        mov     [BytesLeftInBlock],edi
 
-        ;Conversion functions append bytes to the execution
-        ;buffer using STOS. The program counter always points
+        ;Conversion functions append bytes to the execution buffer using STOS
+        ;The program counter always points
         ;to the next byte to insert an instruction (like a normal PC)
-        jmp     ExecuteVM
+        jmp     .Emit
+.RunBlock:
+        ;Add a RET instruction
+        ;Fetch x86 register state
+        mov     ebx,alRegBuffer
+        mov     eax,[ebx]
+        mov     ecx,[ebx+8]
+        mov     edx,[ebx+12]
+        mov     esi,[ebx+16]
+        mov     edi,[ebx+20]
+        mov     ebp,[ebx+24]
+        mov     ebx,[ebx+4]
+
+        ;Call the block
+        call    ExecBuffer
+
+        ;Save x86 register state to memory
+        mov     [alRegBuffer],   eax
+        mov     [alRegBuffer+4], ebx
+        mov     [alRegBuffer+8], ecx
+        mov     [alRegBuffer+12],edx
+        mov     [alRegBuffer+16],esi
+        mov     [alRegBuffer+20],edi
+        mov     [alRegBuffer+24],ebp
+
 .End:
         ret
 
@@ -213,10 +264,6 @@ main:
         push    strCopyrightMsg
         call    puts
         add     esp,4
-
-        mov eax,1
-        mov ebx,1
-        int 80h
 
         cmp     dword [esp+4],1
         jb      .StartError
@@ -233,10 +280,10 @@ main:
         cmp     eax,-1
         je      .StartError
 
-        push    eax                             ;Save the FD
+        push    eax             ;Save the FD
         push    MEM_SIZE
-        call    malloc                          ;Allocate the memory
-        add     esp,4                           ;Clean stack
+        call    malloc          ;Allocate the memory
+        add     esp,4           ;Clean stack
 
         test    eax,eax         ; Is result NULL
         je      .StartError
@@ -259,6 +306,7 @@ main:
         mov     [pMemory],ecx          ;Memorize buffer, PC changes
 
         ;Execute the VM
+        call    ExecuteVM
 
         ;Deallocate memory
 .KillMachine:
@@ -266,5 +314,5 @@ main:
         call    free
 .StartError:
         ;There is no memory to free
-        mov     eax,1
+        mov     eax,SYS_EXIT
         int     80h
