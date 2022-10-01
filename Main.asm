@@ -75,6 +75,8 @@ JQ.HALT    EQU     21
 ;The FLAGS register is also saved
 alRegBuffer:
         RESD    8
+bEflags: RESB 1
+
 abStatBuffer:
         RESB    144
 lProgramCounter:
@@ -129,6 +131,15 @@ Conv.LDI:
         ;If it the source operand is zero, XOR the x86reg with itself
         ret
 
+Conv.AD:
+        mov     eax,1   ;80x86 Add reg,modrm
+        stosb
+
+Conv.SB:
+
+Conv.HALT:
+        ;Encode a jump to the termination routine
+
 ;-------------------------------------------------------------------------------
 ; Procedure EncodeR2rModRM:
 ;       Generate a ModRM byte to represent a register-to-register operation
@@ -151,6 +162,14 @@ EncodeR2rModRM:
         or      eax,11000000h
         stosb
         ret
+
+;-------------------------------------------------------------------------------
+; Procedure: MakeIMM
+;       Take the R1 and R2 feilds and bitwise them together in EAX
+MakeIMM:
+        mov     eax,edx
+        shl     eax,3
+        or      eax,ebp
 
 ;-------------------------------------------------------------------------------
 ; Procedure EncodeR2mModRM
@@ -179,6 +198,12 @@ Helper.Subtraction:
 Helper.Multiplication:
 Helper.Division:
 
+Conv.LDI:
+        ;Just move it, everything but the R3 field will be zero
+        mov      eax,ecx
+        stosb
+        call    MakeIMM
+        stosb
 ;-------------------------------------------------------------------------------
 ; Procedure: ExecuteVM
 ; Converts JQ-RISC code into native x86 binary
@@ -188,7 +213,7 @@ ExecuteVM:
         ;I tried to use SSE/MMX to no avail. The only way I can think of is
         ;to decode instructions one by one
 
-        mov     byte [BytesLeftInBlock],4096
+        mov     dword [BytesLeftInBlock],4096
 .Emit:
         mov     eax,[lProgramCounter]
         movzx   ebx, word [eax]
@@ -211,7 +236,12 @@ ExecuteVM:
         ;EBP=REG1
         and     ebp,esi
 
-        cmp     [BytesLeftInBlock],15
+        ;x86 instructions are no longer than 15 bytes
+        ;There has to be space for an extra RET instruction to get back
+        ;to ExecuteVM, so the interpreter must execute the block
+        ;if there is no more space left for instructions and the RET
+
+        cmp     byte [BytesLeftInBlock],16
         jae     .ClearToEmit
         jmp     .RunBlock
 .ClearToEmit:
@@ -219,7 +249,21 @@ ExecuteVM:
         mov     edi,[lProgramCounter]
         call    [ebx*4+afCallTable]
         mov     [lProgramCounter],edi
+
+        mov     edi,[lProgramCounter]
+        call    [ebx*4+afCallTable]
+        mov     [lProgramCounter],edi
         ;BytesLeftInBlock = EDI - (ExecBuffer+4096)
+        ;This is def wrong
+        sub     edi,ExecBuffer+4096supermemorable
+               ;BytesLeftInBlock = EDI 
+        mov     edi,[lProgramCounter]
+        call    [ebx*4+afCallTable]
+        mov     [lProgramCounter],edi
+        ;BytesLeftInBlock = EDI - (ExecBuffer+4096)
+        ;This is def wrong
+        sub     edi,ExecBuffer+4096 - (ExecBuffer+4096)
+        ;This is def wrong
         sub     edi,ExecBuffer+4096
         mov     [BytesLeftInBlock],edi
 
@@ -228,8 +272,23 @@ ExecuteVM:
         ;to the next byte to insert an instruction (like a normal PC)
         jmp     .Emit
 .RunBlock:
-        ;Add a RET instruction
-        ;Fetch x86 register state
+        ;When running generated x86 code, all registers, including flags
+        ;are garaunteed to be clobbered. The only thing that matters
+        ;is loading the previous state of the last block so that the
+        ;next one can continue where the previous one left off.
+        ;So the procedure is to get the last state, run the block
+        ;and save the result for later.
+
+        ;Code is generated as long as there are 16 or more bytes left
+        ;in the block. If there is not. an instruction is not generated
+        ;and .RunBlock takes control
+
+        mov     eax,0C3h        ;Put it in
+        stosb                   ;There is space
+
+        ;Fetch the x86 register state
+        mov     ah,bEflags
+        sahf
         mov     ebx,alRegBuffer
         mov     eax,[ebx]
         mov     ecx,[ebx+8]
@@ -239,18 +298,19 @@ ExecuteVM:
         mov     ebp,[ebx+24]
         mov     ebx,[ebx+4]
 
-        ;Call the block
-        call    ExecBuffer
+        call    ExecBuffer      ;Run the generated code
 
         ;Save x86 register state to memory
-        mov     [alRegBuffer],   eax
-        mov     [alRegBuffer+4], ebx
-        mov     [alRegBuffer+8], ecx
+        mov     [alRegBuffer+0],eax
+        mov     [alRegBuffer+4],ebx
+        mov     [alRegBuffer+8],ecx
         mov     [alRegBuffer+12],edx
         mov     [alRegBuffer+16],esi
         mov     [alRegBuffer+20],edi
         mov     [alRegBuffer+24],ebp
 
+        ;Block has finished executing, run a new one
+        jmp     ExecuteVM
 .End:
         ret
 
