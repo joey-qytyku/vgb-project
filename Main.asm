@@ -267,7 +267,7 @@ ExecuteVM:
         mov     [lProgramCounter],edi
         ;BytesLeftInBlock = EDI - (ExecBuffer+4096)
         ;This is def wrong
-        sub     edi,ExecBuffer+4096supermemorable
+        sub     edi,ExecBuffer+4096
                ;BytesLeftInBlock = EDI 
         mov     edi,[lProgramCounter]
         call    [ebx*4+afCallTable]
@@ -326,9 +326,9 @@ ExecuteVM:
 .End:
         ret
 
-;-------------------------------------------------------------------------------;
+;------------------------------------------------------------------------------;
 ; Procedure: Termination
-
+; Exits
 Termination:
         mov     eax,SYS_EXIT
         xor     ebx,ebx
