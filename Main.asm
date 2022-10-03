@@ -187,7 +187,6 @@ EncodeSIB:
 Helper.MoveRegToReg:
         call    EncodeR2rModRM
 Helper.CmpRegs:
-Helper.Halt:
 
 ;
 ;All arithmetic and bitwise instructions are register-to-register
@@ -204,6 +203,19 @@ Conv.LDI:
         stosb
         call    MakeIMM
         stosb
+        ret
+
+Conv.HALT:
+        ;Encode a jump to routine Termination
+        mov     esi,.code
+        movsd
+        movsd
+        ret
+.code:
+        mov     eax,Termination ; B8 xx xx xx xx
+        jmp     eax             ; FF E0
+        nop
+
 ;-------------------------------------------------------------------------------
 ; Procedure: ExecuteVM
 ; Converts JQ-RISC code into native x86 binary
@@ -313,6 +325,14 @@ ExecuteVM:
         jmp     ExecuteVM
 .End:
         ret
+
+;-------------------------------------------------------------------------------;
+; Procedure: Termination
+
+Termination:
+        mov     eax,SYS_EXIT
+        xor     ebx,ebx
+        int     80h
 
 ;-------------------------------------------------------------------------------
 ; Procedure: main
