@@ -34,59 +34,33 @@
         %define X86.MOV_R2R    89h
         %define X86.MOV_M2R    8Bh
 
-JQ.LDI  EQU     0
-JQ.AD   EQU     1
-JQ.SB   EQU     2
-JQ.SHF  EQU     3
-JQ.SHI  EQU     4
+;-------------------------------------------------------------------------------
+; Equates
+;-------------------------------------------------------------------------------
+        JQ.HALT EQU     0
+;-------------------------------------------------------------------------------
 
-JQ.BITOR        EQU     5
-JQ.BITXOR       EQU     6
-JQ.BITAND       EQU     7
-JQ.B            EQU     8
-JQ.LDI          EQU     9
+;-------------------------------------------------------------------------------
+; Linking information
+;-------------------------------------------------------------------------------
 
-JQ.B       EQU     10
-JQ.BNZ     EQU     11
-JQ.BZ      EQU     12
-
-JQ.BAE     EQU     13
-JQ.BA      EQU     14
-
-JQ.BBE     EQU     15
-JQ.BB      EQU     16
-
-JQ.BG      EQU     17
-JQ.BGE     EQU     18
-
-JQ.BLE     EQU     19
-JQ.BLESS   EQU     20
-
-JQ.HALT    EQU     21
-
-        bits    32
         global  main
         extern  malloc, free, printf, puts
 
-        section .bss
+;-------------------------------------------------------------------------------
+        section .bss align=64
 
-;When translated x86 instructions are done executing
-;they must exit back to the VM procedure
-;The FLAGS register is also saved
-alRegBuffer:
-        RESD    8
-bEflags: RESB 1
+        ;The flags register is not saved because there are only two
+        ;in JQ-RISC.
 
-abStatBuffer:
-        RESB    144
-lProgramCounter:
-        RESD    1
-pMemory:
-        RESD    1
-BytesLeftInBlock:
-        RESD    1
-ExecBuffer:
-        RESB    4096
+alRegBuffer     RESD    8
+bCarryFlag      RESB    1
+bZeroFlag       RESB    1
+abStatBuffer    RESB    144
+lProgramCounter RESD    1
+pMemory         RESD    1
+BytesLeftBlock  RESD    1
+ExecBuffer      RESB    4096
 
         section .data
 
@@ -112,6 +86,11 @@ Helper.MoveImmToReg:
         shl     eax,3
         or      eax,ebp
         stosd
+        ret
+
+;Branches are not inserted into the block.
+;The interpreter simply changes program flow
+Helper.Branch:
         ret
 
 Conv.LDI:
@@ -199,11 +178,13 @@ Helper.Division:
 
 Conv.LDI:
         ;Just move it, everything but the R3 field will be zero
-        mov      eax,ecx
+        mov     eax,ecx
         stosb
         call    MakeIMM
         stosb
         ret
+
+Conv.B:
 
 Conv.HALT:
         ;Encode a jump to routine Termination
@@ -225,7 +206,7 @@ ExecuteVM:
         ;I tried to use SSE/MMX to no avail. The only way I can think of is
         ;to decode instructions one by one
 
-        mov     dword [BytesLeftInBlock],4096
+        mov     dword [BytesLeftBlock],4096
 .Emit:
         mov     eax,[lProgramCounter]
         movzx   ebx, word [eax]
@@ -253,7 +234,7 @@ ExecuteVM:
         ;to ExecuteVM, so the interpreter must execute the block
         ;if there is no more space left for instructions and the RET
 
-        cmp     byte [BytesLeftInBlock],16
+        cmp     byte [BytesLeftBlock],16
         jae     .ClearToEmit
         jmp     .RunBlock
 .ClearToEmit:
@@ -265,19 +246,19 @@ ExecuteVM:
         mov     edi,[lProgramCounter]
         call    [ebx*4+afCallTable]
         mov     [lProgramCounter],edi
-        ;BytesLeftInBlock = EDI - (ExecBuffer+4096)
-        ;This is def wrong
+        ;BytesLeftBlock = EDI - (ExecBuffer+4096)
+
         sub     edi,ExecBuffer+4096
-               ;BytesLeftInBlock = EDI 
+               ;BytesLeftBlock = EDI 
         mov     edi,[lProgramCounter]
         call    [ebx*4+afCallTable]
         mov     [lProgramCounter],edi
-        ;BytesLeftInBlock = EDI - (ExecBuffer+4096)
-        ;This is def wrong
+        ;BytesLeftBlock = EDI - (ExecBuffer+4096)
+        ;This is def wrong!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         sub     edi,ExecBuffer+4096 - (ExecBuffer+4096)
-        ;This is def wrong
+        ;This is def wrong!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         sub     edi,ExecBuffer+4096
-        mov     [BytesLeftInBlock],edi
+        mov     [BytesLeftBlock],edi
 
         ;Conversion functions append bytes to the execution buffer using STOS
         ;The program counter always points
@@ -298,9 +279,9 @@ ExecuteVM:
         mov     eax,0C3h        ;Put it in
         stosb                   ;There is space
 
+        ;How will I do the flags?
+
         ;Fetch the x86 register state
-        mov     ah,bEflags
-        sahf
         mov     ebx,alRegBuffer
         mov     eax,[ebx]
         mov     ecx,[ebx+8]
@@ -320,6 +301,8 @@ ExecuteVM:
         mov     [alRegBuffer+16],esi
         mov     [alRegBuffer+20],edi
         mov     [alRegBuffer+24],ebp
+        setc    [bCarryFlag]
+        setz    [bZeroFlag]
 
         ;Block has finished executing, run a new one
         jmp     ExecuteVM
@@ -371,19 +354,23 @@ main:
         ;EAX contains pointer to allocated buffer
         ;On the stack is the FD
 
+        ;Read the executable data into the buffer
         mov     ecx,eax         ;Buffer address
         pop     ebx             ;File descriptor
         mov     eax,SYS_READ    ;Syscall
-        mov     edx,[abStatBuffer+STAT_SIZE]
+        mov     edx,[abStatBuffer]
         int     80h
 
         ;Close the file, it is no longer needed
         mov     eax,SYS_OPEN+1
         int     80h
 
+        ;ECX is still return of malloc()
+
         ;Buffer contains the code to be executed by JQx86
+        ;PC initialized to the start of the buffer
         mov     [lProgramCounter],ecx
-        mov     [pMemory],ecx          ;Memorize buffer, PC changes
+        mov     [pMemory],ecx
 
         ;Execute the VM
         call    ExecuteVM

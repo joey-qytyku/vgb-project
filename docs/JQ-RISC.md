@@ -14,6 +14,8 @@ R5 | Scratch
 R6 | Zero
 R7 | Scratch
 
+The flags are internal. It has a carry and zero.
+
 ## Instruction Encoding
 
 Instructions have predictable encoding and fields are in the same location. Each instruction is 16-bit. There are less than 32.
@@ -32,8 +34,10 @@ Features not present:
 * Unaligned memory access
 * Access to words and bytes
 * Branch to unaligned address (32-bit align)
-* Reg-to-reg move
+* Reg-to-reg mov
+  * Add/sub with zero register and store result
 * Comparison
+  * Subtract and store result in zero
 
 Moving from R2R can be done by simply adding the register with the zero register and saving the result to the destination. Comparisons can be done by subtracting two registers and saving the result in the zero register
 
@@ -52,7 +56,11 @@ CCCCCrrr --------
 ```
 ## Instruction Definitions
 ```
-LDI, 0, I-Type
+HALT
+LDI, I-Type
+
+LDM, LS
+STM, LS
 
 AD, R-Type
 SB, R-Type
@@ -62,23 +70,15 @@ SHI, I-Type
 
 BITOR,  R-Type
 BITXOR, R-Type
+
 BITAND, R-Type
 
-B
-BNZ
-BZ
+LDF, Load flags to register
 
-BAE, R-Type
-BA
+BGR
+BLS
 
-BBE
-BB
+B, J, unconditional branch
+BZ, J, just check the inverse lol
 
-BG
-BGE
-
-BLE
-BLESS
-
-HALT
 ```
