@@ -236,35 +236,26 @@ ExecuteVM:
 
         cmp     byte [BytesLeftBlock],16
         jae     .ClearToEmit
-        jmp     .RunBlock
+        call    RunBlock
 .ClearToEmit:
         ;Emit an instruction
         mov     edi,[lProgramCounter]
         call    [ebx*4+afCallTable]
         mov     [lProgramCounter],edi
 
-        mov     edi,[lProgramCounter]
-        call    [ebx*4+afCallTable]
-        mov     [lProgramCounter],edi
         ;BytesLeftBlock = EDI - (ExecBuffer+4096)
-
         sub     edi,ExecBuffer+4096
-               ;BytesLeftBlock = EDI 
+                ;BytesLeftBlock = EDI 
         mov     edi,[lProgramCounter]
-        call    [ebx*4+afCallTable]
-        mov     [lProgramCounter],edi
-        ;BytesLeftBlock = EDI - (ExecBuffer+4096)
-        ;This is def wrong!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         sub     edi,ExecBuffer+4096 - (ExecBuffer+4096)
-        ;This is def wrong!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        sub     edi,ExecBuffer+4096
-        mov     [BytesLeftBlock],edi
 
         ;Conversion functions append bytes to the execution buffer using STOS
         ;The program counter always points
         ;to the next byte to insert an instruction (like a normal PC)
         jmp     .Emit
-.RunBlock:
+
+
+RunBlock:
         ;When running generated x86 code, all registers, including flags
         ;are garaunteed to be clobbered. The only thing that matters
         ;is loading the previous state of the last block so that the
@@ -303,11 +294,7 @@ ExecuteVM:
         mov     [alRegBuffer+24],ebp
         setc    [bCarryFlag]
         setz    [bZeroFlag]
-
-        ;Block has finished executing, run a new one
-        jmp     ExecuteVM
-.End:
-        ret
+        ret     ;Block has finished executing, run a new one
 
 ;------------------------------------------------------------------------------;
 ; Procedure: Termination

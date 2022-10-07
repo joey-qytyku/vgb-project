@@ -81,4 +81,6 @@ BLS
 B, J, unconditional branch
 BZ, J, just check the inverse lol
 
+SWI, Software interrupt
+
 ```
