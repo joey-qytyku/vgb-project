@@ -51,7 +51,7 @@ CCCCCrrr --iiiiii
 J-Type: 8-bit displacement (shifted by 2)
 CCCCCxxx --jjjjj
 
-LS-Type (Load/Store)
+M-Type (Load/Store)
 CCCCCrrr --------
 ```
 ## Instruction Definitions
@@ -59,8 +59,8 @@ CCCCCrrr --------
 HALT
 LDI, I-Type
 
-LDM, LS
-STM, LS
+LDM, M
+STM, M
 
 AD, R-Type
 SB, R-Type
@@ -74,9 +74,6 @@ BITXOR, R-Type
 BITAND, R-Type
 
 LDF, Load flags to register
-
-BGR
-BLS
 
 B, J, unconditional branch
 BZ, J, just check the inverse lol

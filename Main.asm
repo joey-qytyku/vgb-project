@@ -243,6 +243,24 @@ ExecuteVM:
         call    [ebx*4+afCallTable]
         mov     [lProgramCounter],edi
 
+        ;Was this a branch?
+        cmp     eax,-1  ; Branch if carry
+        je      .BC
+        cmp     eax,-2  ; Branch if zero
+        je      .BZ
+        jmp     .dontDoBranch
+.BZ:
+        cmp     byte [bZeroFlag],1
+        je      .doBranch
+        jmp     .dontDoBranch
+.BC:
+        cmp     byte [bCarryFlag],1
+        je      .doBranch
+.doBranch:
+        ;Set the vPC to the branch target so that it runs there
+.dontDoBranch:
+        ;Its not a branch or was and not taken
+
         ;BytesLeftBlock = EDI - (ExecBuffer+4096)
         sub     edi,ExecBuffer+4096
                 ;BytesLeftBlock = EDI 
