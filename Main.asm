@@ -48,18 +48,15 @@
         extern  malloc, free, printf, puts
 
 ;-------------------------------------------------------------------------------
-        section .bss align=64
-
-        ;The flags register is not saved because there are only two
-        ;in JQ-RISC.
+        section .bss
 
 alRegBuffer     RESD    8
-bCarryFlag      RESB    1
-bZeroFlag       RESB    1
-abStatBuffer    RESB    144
 lProgramCounter RESD    1
 pMemory         RESD    1
 BytesLeftBlock  RESD    1
+
+bFlags          RESB    1
+abStatBuffer    RESB    144
 ExecBuffer      RESB    4096
 
         section .data
@@ -116,8 +113,15 @@ Conv.AD:
 
 Conv.SB:
 
-Conv.HALT:
-        ;Encode a jump to the termination routine
+Conv.SHF:
+        ;but variable shifts are slow, on some processors
+        ;the speed is dependent on the shift count
+        ;and it requires clobbering CL
+        ;This means that encoding an immediate l/r shift is
+        ;the only option.
+
+
+Conv.SHI:
 
 ;-------------------------------------------------------------------------------
 ; Procedure EncodeR2rModRM:
@@ -248,7 +252,10 @@ ExecuteVM:
         je      .BC
         cmp     eax,-2  ; Branch if zero
         je      .BZ
-        jmp     .dontDoBranch
+        cmp     eax,-3  ; Branch unconditionally
+        je      .doBranch
+
+        jmp     .dontDoBranch   ; Do not do branch because this is not a Bx op
 .BZ:
         cmp     byte [bZeroFlag],1
         je      .doBranch
@@ -288,7 +295,8 @@ RunBlock:
         mov     eax,0C3h        ;Put it in
         stosb                   ;There is space
 
-        ;How will I do the flags?
+        mov     ah,[bFlags]
+        lahf
 
         ;Fetch the x86 register state
         mov     ebx,alRegBuffer
@@ -303,6 +311,7 @@ RunBlock:
         call    ExecBuffer      ;Run the generated code
 
         ;Save x86 register state to memory
+        ;TODO: optimize this so no abs addresses
         mov     [alRegBuffer+0],eax
         mov     [alRegBuffer+4],ebx
         mov     [alRegBuffer+8],ecx
@@ -310,13 +319,18 @@ RunBlock:
         mov     [alRegBuffer+16],esi
         mov     [alRegBuffer+20],edi
         mov     [alRegBuffer+24],ebp
-        setc    [bCarryFlag]
-        setz    [bZeroFlag]
+        sahf
+        mov     byte[bFlags],ah
+
         ret     ;Block has finished executing, run a new one
 
-;------------------------------------------------------------------------------;
+        ;This is separated for cache locality
+MakeFlags:
+        ret
+
+;-------------------------------------------------------------------------------
 ; Procedure: Termination
-; Exits
+; Exits the program
 Termination:
         mov     eax,SYS_EXIT
         xor     ebx,ebx
