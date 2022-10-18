@@ -61,11 +61,9 @@ ExecBuffer      RESB    4096
 
         section .data
 
-strCopyrightMsg:
-        DB      "JQx86",10,"Copyright (c) 2022 Joey Qytyku",0
-
-strStartuperror:
-        DB      "Error starting virtual machine",0
+strDebugMsg     DB      "Op=%x    Rd=%x    Rs1=%x    Rs2=%x    Imm=%x",10,0
+strCopyrightMsg DB      "JQx86",10,"Copyright (c) 2022 Joey Qytyku",0
+strStartuperror DB      "Error starting virtual machine",0
 
 ;Array of call pointers
 afCallTable:
@@ -73,99 +71,10 @@ afCallTable:
 
         section .text
 
-;No need to decode ModRM, reg specified in opcode
-Helper.MoveImmToReg:
-        xor     eax,eax
-        mov     al,10111000b
-        or      eax,ecx
-        stosb
-        mov     eax,edx
-        shl     eax,3
-        or      eax,ebp
-        stosd
-        ret
+;###############################################################################
+;############################## Helper functions ###############################
+;###############################################################################
 
-;Branches are not inserted into the block.
-;The interpreter simply changes program flow
-Helper.Branch:
-        ret
-
-Conv.LDI:
-        ;Is the source operand the zero register?
-        cmp     ebp,6
-        je      .ZeroDestReg
-
-        ;Is the destination ZR? If so, this is a redundand opcode (NOP)
-        cmp     edx,6
-        jne     .DestNotZR
-        mov     eax,90h
-        stosb
-.DestNotZR:
-
-        call    Helper.MoveImmToReg
-.ZeroDestReg:
-        ;If it the source operand is zero, XOR the x86reg with itself
-        ret
-
-Conv.AD:
-        mov     eax,1   ;80x86 Add reg,modrm
-        stosb
-
-Conv.SB:
-
-Conv.SHF:
-        ;but variable shifts are slow, on some processors
-        ;the speed is dependent on the shift count
-        ;and it requires clobbering CL
-        ;This means that encoding an immediate l/r shift is
-        ;the only option.
-
-
-Conv.SHI:
-
-;-------------------------------------------------------------------------------
-; Procedure EncodeR2rModRM:
-;       Generate a ModRM byte to represent a register-to-register operation
-;
-;       A reg-to-reg ModRM byte looks like this
-;       11rrrRRR, where 11 indicates register addressing
-;       and rrr+RRR are the two register operands.
-;
-; INPUTS:
-;       EBP=Reg1 (source operand)
-;       EDX=Reg2 (destination operand)
-; OUTPUTS:
-;       EAX=Reg-to-reg ModRM byte produced
-; CLOBBERS:
-;       EAX, the output code buffer
-EncodeR2rModRM:
-        mov     eax,edx
-        shl     eax,3
-        or      eax,ebp
-        or      eax,11000000h
-        stosb
-        ret
-
-;-------------------------------------------------------------------------------
-; Procedure: MakeIMM
-;       Take the R1 and R2 feilds and bitwise them together in EAX
-MakeIMM:
-        mov     eax,edx
-        shl     eax,3
-        or      eax,ebp
-
-;-------------------------------------------------------------------------------
-; Procedure EncodeR2mModRM
-;       Generate the Mod/RM + SIB sequence for a specific memory addressing mode
-;       Supports [EAX], [EBX], [ECX], [EDX], [ESI], [EDI], [EBP]
-;
-;       R6 is the zero register.
-; INPUTS:
-;       EBP=Register to use as address (RegOp 1)
-; OUTPUTS:
-;
-EncodeSIB:
-        ret
 
 Helper.MoveRegToReg:
         call    EncodeR2rModRM
@@ -179,6 +88,96 @@ Helper.Addition:
 Helper.Subtraction:
 Helper.Multiplication:
 Helper.Division:
+
+;No need to decode ModRM, reg specified in opcode
+Helper.MoveImmToReg:
+        xor     eax,eax
+        mov     al,10111000b
+        or      eax,ecx
+        stosb
+        mov     eax,edx
+        shl     eax,3
+        or      eax,ebp
+        stosd
+        ret
+
+;-------------------------------------------------------------------------------
+; Procedure EncodeR2rModRM:
+;       Generate a ModRM byte to represent a register-to-register operation
+;
+;       A reg-to-reg ModRM byte looks like this
+;       11rrrRRR, where 11 indicates register addressing
+;       and rrr+RRR are the two register operands.
+;
+; INPUTS:       EBP=Reg1 (source operand)   EDX=Reg2 (destination operand)
+; OUTPUTS:      EAX=Reg-to-reg ModRM byte produced
+; CLOBBERS:     EAX, the output code buffer
+EncodeR2rModRM:
+        mov     eax,edx
+        shl     eax,3
+        or      eax,ebp
+        or      eax,11000000h
+        stosb
+        ret
+
+;-------------------------------------------------------------------------------
+; Procedure: MakeIMM
+; In JQ-RISC, the immediate value is made of R1 and R2. The rest of the
+; bits are unused for decoding simplicity. This takes the R1 and R2 fields
+; and bitwise them together in EAX
+;
+MakeIMM:
+        mov     eax,edx
+        shl     eax,3
+        or      eax,ebp
+        ret
+
+EncodeSIB:
+        ret
+
+;###############################################################################
+;########################### End of Helper functions ###########################
+;###############################################################################
+
+
+;###############################################################################
+;######################## Start of Conversion functions ########################
+;###############################################################################
+Conv.LDI:
+        ;Is the source operand the zero register?
+        cmp     ebp,6
+        je      .ZeroDestReg
+
+        ;Is the destination ZR? If so, this is a redundand opcode (NOP)
+        cmp     edx,6
+        jne     .DestNotZR      ;If not, encode the operation
+
+        ;Otherwise encode a nop
+
+        mov     eax,90h
+        stosb
+        ret
+.DestNotZR:
+        call    Helper.MoveImmToReg
+        ret
+
+Conv.AD:
+        mov     eax,1   ;80x86 Add reg,modrm
+        stosb
+        ;Generate a reg+modrm byte
+
+Conv.SB:
+
+Conv.SHF:
+        ;but variable shifts are slow, on some processors
+        ;the speed is dependent on the shift count
+        ;and it requires clobbering CL
+        ;This means that encoding an immediate l/r shift is
+        ;the only option.
+
+
+Conv.SHI:
+
 
 Conv.LDI:
         ;Just move it, everything but the R3 field will be zero
@@ -201,10 +200,13 @@ Conv.HALT:
         jmp     eax             ; FF E0
         nop
 
-;-------------------------------------------------------------------------------
-; Procedure: ExecuteVM
-; Converts JQ-RISC code into native x86 binary
-;
+;###############################################################################
+;######################## End of Conversion functions ##########################
+;###############################################################################
+
+;###############################################################################
+;###################### Start of Main Execution Procedure ######################
+;###############################################################################
         align   64
 ExecuteVM:
         ;I tried to use SSE/MMX to no avail. The only way I can think of is
@@ -227,11 +229,20 @@ ExecuteVM:
         ;ECX=REG3
         shr     ecx,8
         and     ecx,esi
-        ;EDX=REG2
+        ;EDX=REG2R_TYPE
         shr     edx,3
         and     edx,esi
         ;EBP=REG1
         and     ebp,esi
+
+        pusha
+        push    ebp
+        push    edx
+        push    ecx
+        push    ebx
+        push    strDebugMsg
+        call    printf
+        popa
 
         ;x86 instructions are no longer than 15 bytes
         ;There has to be space for an extra RET instruction to get back
@@ -279,7 +290,6 @@ ExecuteVM:
         ;to the next byte to insert an instruction (like a normal PC)
         jmp     .Emit
 
-
 RunBlock:
         ;When running generated x86 code, all registers, including flags
         ;are garaunteed to be clobbered. The only thing that matters
@@ -324,9 +334,10 @@ RunBlock:
 
         ret     ;Block has finished executing, run a new one
 
-        ;This is separated for cache locality
-MakeFlags:
-        ret
+
+;###############################################################################
+;###################### End of Main Execution Procedure ########################
+;###############################################################################
 
 ;-------------------------------------------------------------------------------
 ; Procedure: Termination

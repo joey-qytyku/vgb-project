@@ -1,56 +1,108 @@
-
 ;JMP implicitly uses signed offsets instead of absolute addresses
 ;which is default for labels
 
-%define J_TYPE(op, off)
+;Operands go in GAS order, just as they do in the encoding
+;Its official now, use it
+; e.g. AD R0,R1,R0 aka R0+R1->R0
 
-%define M_TYPE(op, reg)
 
-%define I_TYPE(op,imm)
+;undef if assign does not work
+%assign OP 0
 
-%define R_TYPE()
+%define R0 0
+%define R1 1
+%define R2 2
+%define R3 3
+%define R4 4
+%define R5 5
+%define R6 6
+%define R7 7
 
-%imacro halt
-%end
+%define J_TYPE(op,label)
 
-%imacro ldi
-%end
+%define M_TYPE(op,reg)
 
-%imacro ldm
-%end
+%define I_TYPE(op,imm,rd)       DW (op<<11)| (rd<<8) | imm
+%define R_TYPE(op,rs1,rs2,rd)   DW (op<<11)| (rs1<<8)| (rs2<<5) | (rd)
 
-%imacro stm
-%end
+%macro halt 0
+        DW   0
+%endmacro
 
-%imacro ad
-%end
+%assign OP OP+1
+%macro ldi 2
+        I_TYPE(OP,%1,%2)
+%endmacro
 
-%imacro sb
-%end
+%assign OP OP+1
+%macro ldm 1
+        M_TYPE(OP,%1)
+%endmacro
 
-%imacro shf
-%end
+%assign OP OP+1
+%macro stm 1
+        M_TYPE(OP,%1)
+%endmacro
 
-%imacro shi
-%end
+%assign OP OP+1
+%macro ad 3
+        R_TYPE(OP,%1,%2,%3)
+%endmacro
 
-%imacro bitor
-%end
+%assign OP OP+1
+%macro sb 3
+        R_TYPE(OP,%1,%2,%3)
+%endmacro
 
-%imacro bitxor
-%end
+%assign OP OP+1
+%macro shf 3
+        R_TYPE(OP,%1,%2,%3)
+%endmacro
 
-%imacro bitand
-%end
+%assign OP OP+1
+%macro bitor 3
+        R_TYPE(OP,%1,%2,%3)
+%endmacro
 
-%imacro ldf
-%end
+%assign OP OP+1
+%macro bitxor 3
+        R_TYPE(OP,%1,%2,%3)
+%endmacro
 
-%imacro b
-%end
+%assign OP OP+1
+%macro bitand 3
+        R_TYPE(OP,%1,%2,%3)
+%endmacro
 
-%imacro bz
-%end
+%assign OP OP+1
+%macro ldf 0
+        I_TYPE(OP,0)
+%endmacro
 
-%imacro swi
-%end
+;
+;Branch instructions
+;
+
+%assign OP OP+1
+%macro b 1
+%endmacro
+
+
+%assign OP OP+1
+%macro bz 1
+%endmacro
+
+;System call, translates to INT 80h
+%assign OP OP+1
+%macro swi 0
+
+%endmacro
+
+ldi 63,0
+ldi 63,1
+ldi 63,2
+ldi 63,3
+ldi 63,4
+ldi 63,5
+ldi 63,6
+ldi 63,7

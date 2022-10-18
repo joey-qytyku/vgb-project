@@ -83,7 +83,7 @@ Because JQ-RISC instructions can take three register operands, an extra reg-to-r
 
 ## Source Code
 
-The source code is written in 32-bit assembly for performance. Pipeline-concious instructions are used:
+The source code is written in 32-bit assembly for performance. Pipeline-friendly instructions are used:
 
 ```
 ; To increment
