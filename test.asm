@@ -23,7 +23,7 @@
 %define M_TYPE(op,reg)
 
 %define I_TYPE(op,imm,rd)       DW (op<<11)| (rd<<8) | imm
-%define R_TYPE(op,rs1,rs2,rd)   DW (op<<11)| (rs1<<8)| (rs2<<5) | (rd)
+%define R_TYPE(op,rs1,rs2,rd)   DW (op<<11)| (rs1<<8)| (rs2<<3) | (rd)
 
 %macro halt 0
         DW   0
@@ -98,11 +98,4 @@
 
 %endmacro
 
-ldi 63,0
-ldi 63,1
-ldi 63,2
-ldi 63,3
-ldi 63,4
-ldi 63,5
-ldi 63,6
-ldi 63,7
+ad 0,1,2
