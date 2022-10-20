@@ -20,8 +20,9 @@
 
 %define J_TYPE(op,label)
 
-%define M_TYPE(op,reg)
+;[00000|000] [xx|000|000]
 
+%define M_TYPE(op,reg)
 %define I_TYPE(op,imm,rd)       DW (op<<11)| (rd<<8) | imm
 %define R_TYPE(op,rs1,rs2,rd)   DW (op<<11)| (rs1<<8)| (rs2<<3) | (rd)
 
@@ -29,73 +30,67 @@
         DW   0
 %endmacro
 
-%assign OP OP+1
 %macro ldi 2
-        I_TYPE(OP,%1,%2)
+        I_TYPE(1,%1,%2)
 %endmacro
 
-%assign OP OP+1
 %macro ldm 1
-        M_TYPE(OP,%1)
+        M_TYPE(2,%1)
 %endmacro
 
-%assign OP OP+1
 %macro stm 1
-        M_TYPE(OP,%1)
+        M_TYPE(3,%1)
 %endmacro
 
-%assign OP OP+1
 %macro ad 3
-        R_TYPE(OP,%1,%2,%3)
+        R_TYPE(4,%1,%2,%3)
 %endmacro
 
-%assign OP OP+1
 %macro sb 3
-        R_TYPE(OP,%1,%2,%3)
+        R_TYPE(5,%1,%2,%3)
 %endmacro
 
-%assign OP OP+1
 %macro shf 3
-        R_TYPE(OP,%1,%2,%3)
+        R_TYPE(6,%1,%2,%3)
 %endmacro
 
-%assign OP OP+1
 %macro bitor 3
-        R_TYPE(OP,%1,%2,%3)
+        R_TYPE(7,%1,%2,%3)
 %endmacro
 
-%assign OP OP+1
 %macro bitxor 3
-        R_TYPE(OP,%1,%2,%3)
+        R_TYPE(8,%1,%2,%3)
 %endmacro
 
-%assign OP OP+1
 %macro bitand 3
-        R_TYPE(OP,%1,%2,%3)
+        R_TYPE(9,%1,%2,%3)
 %endmacro
 
-%assign OP OP+1
 %macro ldf 0
-        I_TYPE(OP,0)
+        I_TYPE(10,0)
 %endmacro
 
 ;
 ;Branch instructions
 ;
 
-%assign OP OP+1
 %macro b 1
 %endmacro
 
 
-%assign OP OP+1
 %macro bz 1
 %endmacro
 
 ;System call, translates to INT 80h
-%assign OP OP+1
 %macro swi 0
-
+        I_TYPE(31,0)
 %endmacro
 
-ad 0,1,2
+ldi 4,R0
+ldi 0,R1
+ldm 10,R2
+ldi 14,R3
+swi
+strPtr: DD strMessage
+strMessage:
+DB "Hello, world",10

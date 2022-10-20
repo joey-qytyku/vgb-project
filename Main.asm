@@ -90,10 +90,14 @@ Helper.Multiplication:
 Helper.Division:
 
 ;No need to decode ModRM, reg specified in opcode
+;Uses EBP as the register and EDX as the immediate
+;
+;The MakeIMM procedure must be used to generate the immediate value
+;
 Helper.MoveImmToReg:
         xor     eax,eax
         mov     al,10111000b
-        or      eax,ecx
+        or      eax,ebp
         stosb
         mov     eax,edx
         shl     eax,3
@@ -158,8 +162,28 @@ Conv.LDI:
         stosb
         ret
 .DestNotZR:
+
+.ZeroDestReg:
+        xor     edx,edx
+        call    Helper.MoveImmToReg
+.RegularMove:
         call    Helper.MoveImmToReg
         ret
+
+Conv.LDM:
+        ;Memory access requires generating an MOV with the immediate value
+        ;32-bit for optimizations
+        ;The base register is also the register where it is written for loads
+
+        ;Last reg operand is the index (ECX)
+        mov     eax,[pMemory]
+        add     eax,[alRegBuffer+ecx*4]
+        mov     eax,[eax]
+        ;Now the memory has been "accessed"
+        ;Time to write it to the register
+        call    Helper.MoveImmToReg     ; How does this work?
+
+Conv.STM:
 
 Conv.AD:
         mov     eax,1   ;80x86 Add reg,modrm
@@ -178,13 +202,9 @@ Conv.SHF:
 
 Conv.SHI:
 
-
-Conv.LDI:
-        ;Just move it, everything but the R3 field will be zero
-        mov     eax,ecx
-        stosb
-        call    MakeIMM
-        stosb
+Conv.SWI:
+        mov     eax,80CDh
+        stosw
         ret
 
 Conv.B:
@@ -226,13 +246,13 @@ ExecuteVM:
         and     ebx,esi
         cmp     ebx,JQ.HALT
         jz      .End
-        ;ECX=REG3
+        ;ECX=REG1
         shr     ecx,8
         and     ecx,esi
-        ;EDX=REG2R_TYPE
+        ;EDX=REG2
         shr     edx,3
         and     edx,esi
-        ;EBP=REG1
+        ;EBP=REG3
         and     ebp,esi
 
         pusha
