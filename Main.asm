@@ -147,26 +147,23 @@ EncodeSIB:
 ;###############################################################################
 ;######################## Start of Conversion functions ########################
 ;###############################################################################
+
+
+;
+; if destination reg is zero register, generate a NOP
+; This is immediate, so there is no source register
+;
 Conv.LDI:
-        ;Is the source operand the zero register?
-        cmp     ebp,6
-        je      .ZeroDestReg
-
-        ;Is the destination ZR? If so, this is a redundand opcode (NOP)
         cmp     edx,6
-        jne     .DestNotZR      ;If not, encode the operation
-
-        ;Otherwise encode a nop
-
+        jne     .RegularMove    ;If not zero, encode the operation
+                                ;Otherwise encode a NOP
         mov     eax,90h
         stosb
         ret
-.DestNotZR:
 
-.ZeroDestReg:
-        xor     edx,edx
-        call    Helper.MoveImmToReg
-.RegularMove:
+.RegularMove:   ;We are moving an immediate value to a scratch register
+        call    MakeIMM                 ;Return value in EAX
+        mov     edx,eax
         call    Helper.MoveImmToReg
         ret
 
@@ -191,6 +188,7 @@ Conv.AD:
         ;Generate a reg+modrm byte
 
 Conv.SB:
+
 
 Conv.SHF:
         ;but variable shifts are slow, on some processors
