@@ -66,8 +66,8 @@
         R_TYPE(9,%1,%2,%3)
 %endmacro
 
-%macro ldf 0
-        I_TYPE(10,0)
+%macro ldf 1
+        I_TYPE(10,0,%1)
 %endmacro
 
 ;
@@ -83,14 +83,18 @@
 
 ;System call, translates to INT 80h
 %macro swi 0
-        I_TYPE(31,0)
+        I_TYPE(31,0,0)    ; May want to update this later
 %endmacro
 
-ldi 4,R0
-ldi 0,R1
-ldm 10,R2
-ldi 14,R3
+ldi     4,      R0      ;System call number
+ldi     0,      R1      ;File descriptor
+
+ldi     12,     R2      ;Get the pointer to string
+ldm     R2
+
+ldi     14,     R3      ;Size of string
 swi
-strPtr: DD strMessage
+
+MsgPtr: DD strMessage
 strMessage:
-DB "Hello, world",10
+DB "Hello, world",10,0

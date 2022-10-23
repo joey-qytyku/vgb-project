@@ -18,8 +18,6 @@
 ;OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ;SOFTWARE.
 
-%endmacro
-
         %define SYS_EXIT        1
         %define SYS_READ        3
         %define SYS_OPEN        5
@@ -29,6 +27,9 @@
         %define O_RDONLY        00000000
         %define STAT_SIZE       48
         %define MEM_SIZE        65536
+
+        %define X86_CF          1<<0
+        %define X86_ZF          40h
 
         ;Single byte opcodes using ModRM/Reg to encode RegOps
         %define X86.MOV_R2R    89h
@@ -231,7 +232,9 @@ ExecuteVM:
         ;to decode instructions one by one
 
         mov     dword [BytesLeftBlock],4096
+
 .Emit:
+
         mov     eax,[lProgramCounter]
         movzx   ebx, word [eax]
         mov     ecx,ebx
@@ -243,7 +246,11 @@ ExecuteVM:
         shr     ebx,3
         and     ebx,esi
         cmp     ebx,JQ.HALT
-        jz      .End
+        jnz      .NotHalt
+        jmp     Termination
+
+.NotHalt:
+
         ;ECX=REG1
         shr     ecx,8
         and     ecx,esi
@@ -286,12 +293,12 @@ ExecuteVM:
 
         jmp     .dontDoBranch   ; Do not do branch because this is not a Bx op
 .BZ:
-        cmp     byte [bZeroFlag],1
-        je      .doBranch
+        test    byte[bFlags],X86_ZF
+        jnz     .doBranch
         jmp     .dontDoBranch
 .BC:
-        cmp     byte [bCarryFlag],1
-        je      .doBranch
+        test    byte[bFlags],X86_CF
+        jnz     .doBranch
 .doBranch:
         ;Set the vPC to the branch target so that it runs there
 .dontDoBranch:
@@ -376,7 +383,7 @@ main:
         call    puts
         add     esp,4
 
-        cmp     dword [esp+4],1
+        cmp     dword [esp+4],1 ;Check argument count
         jb      .StartError
 
         mov     ebx,[esp+8]
@@ -429,5 +436,7 @@ main:
         call    free
 .StartError:
         ;There is no memory to free
+        push    strStartuperror
+        call    puts
         mov     eax,SYS_EXIT
         int     80h
