@@ -383,7 +383,7 @@ main:
         call    puts
         add     esp,4
 
-        cmp     dword [esp+4],1 ;Check argument count
+        cmp     dword [esp+4],2 ;Check argument count, ProgName included
         jb      .StartError
 
         mov     ebx,[esp+8]
@@ -438,5 +438,7 @@ main:
         ;There is no memory to free
         push    strStartuperror
         call    puts
+        sub     esp,4
+
         mov     eax,SYS_EXIT
         int     80h
