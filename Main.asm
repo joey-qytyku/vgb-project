@@ -68,7 +68,17 @@ strStartuperror DB      "Error starting virtual machine",0
 
 ;Array of call pointers
 afCallTable:
-        DD      Conv.LDI
+.0      DD      0
+.1      DD      Conv.LDI
+.2      DD      Conv.LDM
+.3      DD      Conv.STM
+.4:
+.5:
+.6:
+.7:
+.8:
+.9:
+.A:
 
         section .text
 
@@ -234,9 +244,9 @@ ExecuteVM:
         mov     dword [BytesLeftBlock],4096
 
 .Emit:
-
-        mov     eax,[lProgramCounter]
-        movzx   ebx, word [eax]
+        mov     eax,[lProgramCounter] 
+        add     eax,ExecBuffer          ; Fixed?
+        movzx   ebx, word [eax]         ;SEGVed here, NULL (zero) ptr bug
         mov     ecx,ebx
         mov     edx,ebx
         mov     ebp,ebx
@@ -410,10 +420,10 @@ main:
         ;On the stack is the FD
 
         ;Read the executable data into the buffer
-        mov     ecx,eax         ;Buffer address
+        mov     edx,eax         ;Buffer address
         pop     ebx             ;File descriptor
         mov     eax,SYS_READ    ;Syscall
-        mov     edx,[abStatBuffer]
+        mov     ecx,[abStatBuffer]
         int     80h
 
         ;Close the file, it is no longer needed
